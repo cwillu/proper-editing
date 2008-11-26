@@ -1,0 +1,8 @@
+[Gedit Plugin]
+Module=symbolbrowser
+IAge=2
+Name=Symbol Browser
+Description=A programming symbol browser.
+Authors=Micah Carrick <email@micahcarrick.com>
+Copyright=Copyright © 2007 Micah Carrick
+Website=http://symbol-browser.sourceforge.net

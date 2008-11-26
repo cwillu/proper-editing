@@ -1,0 +1,9 @@
+[Gedit Plugin]
+Loader=python
+Module=advanced_editing
+IAge=2
+Name=Advanced Editing
+Description=This plugin gives gedit more editing capabilities by providing various functions to delete lines, words etc. 
+Authors=Marcus Lunzenauer <mlunzena@uos.de>
+Copyright=Copyright @ 2006
+Website=http://www.gedit.org

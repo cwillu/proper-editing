@@ -1,0 +1,9 @@
+[Gedit Plugin]
+Loader=python
+Module=session_state
+IAge=2
+Name=Session State Saver
+Description=Maintains gedit state across crashes and restarts
+Authors=
+Copyright=Copyright © 2008 Carey Underwood <cwillu@cwillu.com>
+Website=http://www.gedit.org

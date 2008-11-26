@@ -1,0 +1,9 @@
+[Gedit Plugin]
+Loader=python
+Module=proper_editing
+IAge=2
+Name=Proper Editing
+Description=This plugin gives gedit more proper editing capabilities. 
+Authors=Carey Underwood <cwillu@cwillu.com>
+Copyright=Copyright @ 2008
+Website=http://cwillu.com/Proper/
