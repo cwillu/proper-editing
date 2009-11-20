@@ -20,6 +20,7 @@
 
 import gedit
 import gtk
+import gtksourceview2
 
 import re
 import bisect
@@ -107,9 +108,10 @@ class weird(object):
 class Actions(gedit.Plugin):
   def Afold_from_search(self, action, window):
     view = window.get_active_view()
+    document = window.get_active_document()    
     buffer = view.get_buffer()
 
-    search, flags = buffer.get_search_text()
+    search, flags = document.get_search_text()
     if not search or search == window.get_data("SearchFold")['search']:
       if weird.folded(buffer):
         return self.Aunfold(action, window)
@@ -126,12 +128,17 @@ class Actions(gedit.Plugin):
 
         search, flags = buffer.get_text(left, right), 0
 
+    if flags & 0b100:
+      flags = 0
+    else:
+      flags = gtksourceview2.SEARCH_CASE_INSENSITIVE
+
     window.set_data("SearchFold", {'search': search})
 
     start = buffer.get_start_iter()
     start.set_line_offset(0)
     while start:
-      hit = start.forward_search(search, 0)
+      hit = gtksourceview2.iter_forward_search(start, search, flags)
       if hit:
         hit[0].set_line_offset(0)
         hit[1].forward_line()
