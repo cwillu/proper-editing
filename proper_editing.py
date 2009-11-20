@@ -34,59 +34,136 @@ gtk.rc_parse_string('''binding "nodel" {
 
 boundary = re.compile(r'''[A-Z]*[a-z]+|\s+|\b|['"_]''')
 
-def getInsertMark(buffer):
-  cursor = buffer.get_insert()
-  return buffer.get_iter_at_mark(cursor)
+class weird(object):
+  @staticmethod
+  def getInsertMark(buffer):
+    cursor = buffer.get_insert()
+    return buffer.get_iter_at_mark(cursor)
 
-def getLine(buffer, mark):
-  lineStart = mark.copy()
-  lineStart.set_line_offset(0)
-  
-  lineEnd = mark.copy()
-  lineEnd.set_line_offset(lineEnd.get_chars_in_line())
-  
-  return buffer.get_text(lineStart, lineEnd)
-  
-def getLineBoundaries(line):
-  boundaries = list(itertools.chain(*[m.span() for m in boundary.finditer(line)]))
-  if 0 not in boundaries:
-    boundaries.insert(0, 0)
-  if len(line) not in boundaries:
-    boundaries.append(len(line))
-  return boundaries
+  @staticmethod
+  def getSelectionMark(buffer):
+    selection = buffer.get_selection_bound()
+    return buffer.get_iter_at_mark(selection)
 
-def nextMark(mark, boundaries):
-  mark = mark.copy()
-  for offset in boundaries:    
-    if offset > mark.get_line_offset():
-      mark.set_line_offset(offset)
-      break
-  else:
-    offset = mark.get_offset()
-    while mark.get_offset() == offset:
-      mark.forward_char()    
+  @staticmethod
+  def getLine(buffer, mark):
+    lineStart = mark.copy()
+    lineStart.set_line_offset(0)
     
-  return mark
-  
-def previousMark(mark, boundaries):
-  mark = mark.copy()
-  for offset in boundaries[::-1]:    
-    if offset < mark.get_line_offset():
-       mark.set_line_offset(offset)
-       break
-  else:
-    mark.backward_cursor_position()      
-  return mark
+    lineEnd = mark.copy()
+    lineEnd.set_line_offset(lineEnd.get_chars_in_line())
+    
+    return buffer.get_text(lineStart, lineEnd)
+    
+  @staticmethod
+  def getLineBoundaries(line):
+    boundaries = list(itertools.chain(*[m.span() for m in boundary.finditer(line)]))
+    if 0 not in boundaries:
+      boundaries.insert(0, 0)
+    if len(line) not in boundaries:
+      boundaries.append(len(line))
+    return boundaries
+
+  @staticmethod
+  def nextMark(mark, boundaries):
+    mark = mark.copy()
+    for offset in boundaries:    
+      if offset > mark.get_line_offset():
+        mark.set_line_offset(offset)
+        break
+    else:
+      offset = mark.get_offset()
+      while mark.get_offset() == offset:
+        mark.forward_char()    
+      
+    return mark
+    
+  @staticmethod
+  def previousMark(mark, boundaries):
+    mark = mark.copy()
+    for offset in boundaries[::-1]:    
+      if offset < mark.get_line_offset():
+         mark.set_line_offset(offset)
+         break
+    else:
+      mark.backward_cursor_position()      
+    return mark
+
+  @staticmethod
+  def folded(buffer):
+    return buffer.tag_table.lookup('folded')
+    
+  @staticmethod
+  def fold(buffer):
+    tag = weird.folded(buffer)
+    if not tag:  
+      tag = gtk.TextTag("folded")
+      tag.set_property('invisible', True)
+      tag.set_property('invisible-set', True)
+      buffer.tag_table.add(tag)
+      
+    return tag
 
 class Actions(gedit.Plugin):
+  def Afold_from_search(self, action, window):
+    view = window.get_active_view()
+    buffer = view.get_buffer()
+
+    search, flags = buffer.get_search_text()
+    if not search or search == window.get_data("SearchFold")['search']:
+      if weird.folded(buffer):
+        return self.Aunfold(action, window)
+      else:              
+        left = weird.getInsertMark(buffer)
+        right = weird.getSelectionMark(buffer)
+        if left.equal(right):
+          insert = left
+          line = weird.getLine(buffer, insert)
+          boundaries = weird.getLineBoundaries(line)
+
+          left = weird.nextMark(insert, boundaries)
+          right = weird.previousMark(insert, boundaries)
+
+        search, flags = buffer.get_text(left, right), 0
+
+    window.set_data("SearchFold", {'search': search})
+
+    start = buffer.get_start_iter()
+    start.set_line_offset(0)
+    while start:
+      hit = start.forward_search(search, 0)
+      if hit:
+        hit[0].set_line_offset(0)
+        hit[1].forward_line()
+        stop = hit[0]
+        next = hit[1]
+      else:
+        stop = buffer.get_end_iter()
+        next = None
+
+      buffer.apply_tag(weird.fold(buffer), start, stop)
+      start = next
+
+    view.scroll_to_cursor()
+
+  def Aunfold(self, action, window):
+    view = window.get_active_view()
+    buffer = view.get_buffer()
+    
+    buffer.remove_tag(weird.fold(buffer), buffer.get_start_iter(), buffer.get_end_iter())
+    buffer.tag_table.remove(weird.fold(buffer))
+    view.scroll_to_cursor()
+    window.set_data("SearchFold", {'search': '' })
+    
+
   def Amove_to_next_word(self, action, window):
     view = window.get_active_view()
     buffer = view.get_buffer()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    insert = nextMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    insert = weird.nextMark(insert, boundaries)
                      
     buffer.place_cursor(insert)
   
@@ -94,10 +171,10 @@ class Actions(gedit.Plugin):
     view = window.get_active_view()
     buffer = view.get_buffer()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    insert = previousMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    insert = weird.previousMark(insert, boundaries)
         
     buffer.place_cursor(insert)  
 
@@ -105,10 +182,10 @@ class Actions(gedit.Plugin):
     view = window.get_active_view()
     buffer = view.get_buffer()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    insert = nextMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    insert = weird.nextMark(insert, boundaries)
                      
     buffer.move_mark(buffer.get_insert(), insert)   
   
@@ -116,10 +193,10 @@ class Actions(gedit.Plugin):
     view = window.get_active_view()
     buffer = view.get_buffer()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    insert = previousMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    insert = weird.previousMark(insert, boundaries)
         
     buffer.move_mark(buffer.get_insert(), insert)
 
@@ -128,10 +205,10 @@ class Actions(gedit.Plugin):
     buffer = view.get_buffer()
     buffer.begin_user_action()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    end = nextMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    end = weird.nextMark(insert, boundaries)
                      
     buffer.delete(insert, end)   
     buffer.end_user_action()   
@@ -141,14 +218,14 @@ class Actions(gedit.Plugin):
     buffer = view.get_buffer()
     buffer.begin_user_action()
     
-    insert = getInsertMark(buffer)
-    line = getLine(buffer, insert)
-    boundaries = getLineBoundaries(line)
-    end = previousMark(insert, boundaries)
+    insert = weird.getInsertMark(buffer)
+    line = weird.getLine(buffer, insert)
+    boundaries = weird.getLineBoundaries(line)
+    end = weird.previousMark(insert, boundaries)
         
     buffer.delete(end, insert)   
     buffer.end_user_action()   
-      
+
 def _menu(name):
   return '''<menuitem name="%s" action="%s"/>''' % (name, name)
 def _action(operation):
@@ -187,6 +264,7 @@ class ProperEditingPlugin(gedit.Plugin):
     windowdata["ui_id"] = manager.add_ui_from_string(self.adv_edit_str)
     
     window.set_data("ProperEditingPluginInfo", windowdata)
+    window.set_data("SearchFold", {'search': '' })
 
   def deactivate(self, window):
     windowdata = window.get_data("ProperEditingPluginWindowDataKey")
